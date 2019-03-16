@@ -29,6 +29,14 @@ def concat_preds(preds):
     return nd.concat(*[flatten_pred(p) for p in preds], dim=1)
 
 
+def hybrid_flatten_pred(sym_pred):
+    return sym.transpose(sym_pred, (0, 2, 3, 1)).flatten()
+
+
+def hybrid_concat_preds(sym_preds):
+    return sym.concat(*[hybrid_flatten_pred(p) for p in sym_preds], dim=1)
+
+
 def fmap_grid(fmaplist):
     def factor(n):
         factors = set()
@@ -546,6 +554,7 @@ def show_images(imgs, num_rows, num_cols, scale=2):
             axes[i][j].axes.get_yaxis().set_visible(False)
     return axes
 
+
 def show_images_np(imgs, num_rows, num_cols, scale=2):
     """Plot a list of images."""
     figsize = (num_cols * scale, num_rows * scale)
@@ -556,6 +565,7 @@ def show_images_np(imgs, num_rows, num_cols, scale=2):
             axes[i][j].axes.get_xaxis().set_visible(False)
             axes[i][j].axes.get_yaxis().set_visible(False)
     return axes
+
 
 def show_trace_2d(f, res):
     """Show the trace of 2d variables during optimization."""

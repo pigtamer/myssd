@@ -75,16 +75,19 @@ class MySSD(nn.Block):
 """
 
 
-def getConvLayer(data):
+def getConvLayer(data, name, num_filter, kernel_size,
+                 pad=(0,0), stride=(1,1), activation='relu', bn=True):
     """
     return a conv layer with act, batchnorm, and pooling layers, if any
     :return:
     """
-    convunit = sym.Convolution(data=data)
-    convunit = sym.BatchNorm()
-    convunit = sym.Activation()
-    convunit = sym.Pooling()
-    pass
+    convunit = sym.Convolution(data=data, num_filter=num_filter, pad=pad, stride=stride, kernel=kernel_size,
+                               name=name + "conv")
+    if bn:
+        convunit = sym.BatchNorm(data=convunit, name=name + "bn")
+    convunit = sym.Activation(data=convunit, act_type=activation,
+                              name=name + "act")
+    return convunit
 
 
 def getBaseNet():
@@ -106,3 +109,18 @@ def getSSD():
 def getPredBranch():
     net = sym.Convolution()
     pass
+
+
+def test():
+    x = nd.random.normal(0, 1, (100, 3, 16, 16))
+    nd_iter = mx.io.NDArrayIter(data={'data': x},
+            batch_size = 25)
+    in_var = sym.Variable('data')
+    vn = getConvLayer(in_var, "conv1", 1, (3, 3))
+    mx.viz.plot_network(symbol=vn, node_attrs={"shape": "oval", "fixedsize": "false"})
+    net = mod.Module(symbol=getConvLayer(in_var,'conv1', 1, (3,3)))
+    net.bind(data_shapes=nd_iter.provide_data,
+             label_shapes=nd_iter.provide_label)
+    net.init_params()
+    net.forward(nd_iter.provide_data())
+    print(x)

@@ -3,7 +3,7 @@ import mxnet as mx
 import cv2 as cv
 import matplotlib.pyplot as plt
 from utils import utils, train, predata
-from utils.utils import concat_preds, flatten_pred
+from utils.utils import concat_preds, flatten_pred, hybrid_concat_preds
 from mxnet import autograd, sym, init, nd, contrib, gluon, image
 from mxnet.gluon import nn, trainer
 from mxnet.gluon import loss as gloss
@@ -30,12 +30,21 @@ def blk_forward(X, blk, size, ratio, cls_predictor, bbox_predictor):
     bbox_preds = bbox_predictor(Y)
     return (Y, anchors, cls_preds, bbox_preds)
 
-class MySSD(nn.Block):
+def hybrid_blk_forward(X, blk, size, ratio, cls_predictor, bbox_predictor):
+    Y = blk(X)
+    anchors = sym.contrib.MultiBoxPrior(data=Y, sizes=size, ratios=ratio)
+    # anchors = nd.contrib.MultiBoxPrior(Y, sizes=size, ratios=ratio)
+    cls_preds = cls_predictor(Y)
+    bbox_preds = bbox_predictor(Y)
+    return (Y, anchors, cls_preds, bbox_preds)
+
+
+class MySSD(nn.HybridBlock):
     def __init__(self, num_cls, num_ach, **kwargs):
         super(MySSD, self).__init__(**kwargs)
         self.num_classes = num_cls
         self.BaseBlk = BaseNetwork(True)
-        self.blk1 = nn.Sequential()
+        self.blk1 = nn.HybridSequential()
         self.blk1.add(nn.Conv2D(channels=1024, kernel_size=3, strides=1, padding=0),
                       nn.Conv2D(channels=1024, kernel_size=1, strides=1, padding=1),
                       nn.BatchNorm(in_channels=1024),
@@ -45,7 +54,7 @@ class MySSD(nn.Block):
         self.cls1 = genClsPredictor(num_cls, num_ach)
         self.reg1 = genBBoxRegressor(num_ach)
 
-        self.blk2 = nn.Sequential()
+        self.blk2 = nn.HybridSequential()
         self.blk2.add(nn.Conv2D(channels=256, kernel_size=1, strides=1, padding=0),
                       nn.Conv2D(channels=512, kernel_size=3, strides=1, padding=1),
                       nn.BatchNorm(in_channels=512),
@@ -55,7 +64,7 @@ class MySSD(nn.Block):
         self.cls2 = genClsPredictor(num_cls, num_ach)
         self.reg2 = genBBoxRegressor(num_ach)
 
-        self.blk3 = nn.Sequential()
+        self.blk3 = nn.HybridSequential()
         self.blk3.add(nn.Conv2D(channels=128, kernel_size=1, strides=1, padding=0),
                       nn.Conv2D(channels=256, kernel_size=3, strides=1, padding=1),
                       nn.BatchNorm(in_channels=256),
@@ -65,7 +74,7 @@ class MySSD(nn.Block):
         self.cls3 = genClsPredictor(num_cls, num_ach)
         self.reg3 = genBBoxRegressor(num_ach)
 
-        self.blk4 = nn.Sequential()
+        self.blk4 = nn.HybridSequential()
         self.blk4.add(nn.Conv2D(channels=128, kernel_size=1, strides=1, padding=0),
                       nn.Conv2D(channels=256, kernel_size=3, strides=1, padding=1),
                       nn.BatchNorm(in_channels=256),
@@ -75,7 +84,7 @@ class MySSD(nn.Block):
         self.cls4 = genClsPredictor(num_cls, num_ach)
         self.reg4 = genBBoxRegressor(num_ach)
 
-        self.blk5 = nn.Sequential()
+        self.blk5 = nn.HybridSequential()
         self.blk3.add(nn.Conv2D(channels=128, kernel_size=1, strides=1, padding=0),
                       nn.Conv2D(channels=256, kernel_size=3, strides=1, padding=1),
                       nn.BatchNorm(in_channels=256),
@@ -85,7 +94,7 @@ class MySSD(nn.Block):
         self.cls5 = genClsPredictor(num_cls, num_ach)
         self.reg5 = genBBoxRegressor(num_ach)
 
-    def forward(self, x):
+    def hybrid_forward(self, F, x, *args, **kwargs):
         x = self.BaseBlk(x)
 
         anchors, cls_preds, bbox_preds = [None] * 5, [None] * 5, [None] * 5
@@ -93,15 +102,15 @@ class MySSD(nn.Block):
             if k == 0:
                 im = x
             (x, anchors[k], cls_preds[k], bbox_preds[k]) = \
-                blk_forward(x, getattr(self, "blk%d" % (k + 1)), sizes[k], ratios[k],
+                hybrid_blk_forward(x, getattr(self, "blk%d" % (k + 1)), sizes[k], ratios[k],
                             getattr(self, "cls%d" % (k + 1)), getattr(self, "reg%d" % (k + 1)))
             # print("layer[%d], fmap shape %s, anchor %s" % (k + 1, x.shape, anchors[k].shape))
-        return (im, nd.concat(*anchors, dim=1),
-                concat_preds(cls_preds).reshape((0, -1, self.num_classes + 1)),
-                concat_preds(bbox_preds))
+        return (im, sym.concat(*anchors, dim=1),
+                hybrid_concat_preds(cls_preds).reshape((0, -1, self.num_classes + 1)),
+                hybrid_concat_preds(bbox_preds))
 
 
-class BaseNetwork(nn.Block):  # VGG base network, without fc
+class BaseNetwork(nn.HybridBlock):  # VGG base network, without fc
     def __init__(self, IF_TINY, **kwargs):
         super(BaseNetwork, self).__init__(**kwargs)
         self.IF_TINY = IF_TINY
@@ -125,7 +134,7 @@ class BaseNetwork(nn.Block):  # VGG base network, without fc
             self.conv5_3 = nn.Conv2D(channels=512, kernel_size=3, padding=1, activation='relu')
             self.pool5 = nn.MaxPool2D(pool_size=(2, 2))
 
-    def forward(self, x):
+    def hybrid_forward(self, F, x, *args, **kwargs):
         x = self.pool1(self.conv1_2(self.conv1_1(x)))
         x = self.pool2(self.conv2_2(self.conv2_1(x)))
         x = self.pool3(self.conv3_3(self.conv3_2(self.conv3_1(x))))
@@ -138,9 +147,11 @@ class BaseNetwork(nn.Block):  # VGG base network, without fc
 def test(ctx=mx.cpu()):
     net = MySSD(1, num_anchors)
     net.initialize(init="Xavier", ctx=ctx)
+    net.hybridize()
     # print(net)
-
-    batch_size, edge_size = 4, 448
+    # x = nd.random.normal(0,1,(100,3,256,256), ctx=ctx)
+    # net(x)
+    batch_size, edge_size = 4, 256
     train_iter, _ = predata.load_data_pikachu(batch_size, edge_size)
     batch = train_iter.next()
     batch.data[0].shape, batch.label[0].shape
@@ -187,7 +198,7 @@ def test(ctx=mx.cpu()):
                     # generate anchors and generate bboxes
                     anchors, cls_preds, bbox_preds = net(X)
                     # assign classes and bboxes for each anchor
-                    bbox_labels, bbox_masks, cls_labels = contrib.nd.MultiBoxTarget(anchors, Y,
+                    bbox_labels, bbox_masks, cls_labels = nd.contrib.MultiBoxTarget(anchors, Y,
                                                                                     cls_preds.transpose((0, 2, 1)))
                     # calc loss
                     l = calc_loss(cls_preds, cls_labels, bbox_preds, bbox_labels,
@@ -206,12 +217,12 @@ def test(ctx=mx.cpu()):
 
     def predict(X):
         im, anchors, cls_preds, bbox_preds = net(X.as_in_context(ctx))
-        im = im.transpose((2, 3, 1, 0)).asnumpy()
-        imgs = [im[1:-2,1:-2, k, 0] for k in range(256)] # why are there boundary effect?
+        # im = im.transpose((2, 3, 1, 0)).asnumpy()
+        # imgs = [im[1:-2,1:-2, k, 0] for k in range(256)] # why are there boundary effect?
 
-        utils.show_images_np(imgs, 16, 16)
+        # utils.show_images_np(imgs, 16, 16)
         # plt.show()
-        plt.savefig("./activation/figbase%s"%nd.random.randint(0,100,1).asscalar())
+        # plt.savefig("./activation/figbase%s"%nd.random.randint(0,100,1).asscalar())
 
         # plt.imshow(nd.sum(nd.array(im[1:-2, 1:-2, :, :]), axis=2).asnumpy()[:, :, 0], cmap='gray')
         # plt.savefig("./suming_act")
@@ -241,7 +252,7 @@ def test(ctx=mx.cpu()):
     while True:
         ret, frame = cap.read()
         img = nd.array(frame)
-        feature = image.imresize(img, 448, 448).astype('float32')
+        feature = image.imresize(img, 256, 256).astype('float32')
         X = feature.transpose((2, 0, 1)).expand_dims(axis=0)
 
         countt = time.time()
@@ -251,8 +262,8 @@ def test(ctx=mx.cpu()):
 
         utils.set_figsize((5, 5))
 
-        # display(frame / 255, output, threshold=0.8)
-        # plt.show()
+        display(frame / 255, output, threshold=0.8)
+        plt.show()
 
 
 test(mx.gpu())
