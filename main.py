@@ -16,11 +16,11 @@ num_anchors = len(sizes[0]) + len(ratios[0]) - 1
 
 
 def genClsPredictor(num_cls, num_ach):
-    return nn.Conv2D(num_ach * (num_cls + 1), kernel_size=3, padding=1)
+    return nn.Conv2D(channels=num_ach * (num_cls + 1), kernel_size=3, padding=1)
 
 
 def genBBoxRegressor(num_ach):
-    return nn.Conv2D(num_ach * 4, kernel_size=3, padding=1)
+    return nn.Conv2D(channels=num_ach * 4, kernel_size=3, padding=1)
 
 
 def blk_forward(X, blk, size, ratio, cls_predictor, bbox_predictor):
@@ -29,6 +29,7 @@ def blk_forward(X, blk, size, ratio, cls_predictor, bbox_predictor):
     cls_preds = cls_predictor(Y)
     bbox_preds = bbox_predictor(Y)
     return (Y, anchors, cls_preds, bbox_preds)
+
 
 def hybrid_blk_forward(X, blk, size, ratio, cls_predictor, bbox_predictor):
     Y = blk(X)
@@ -103,7 +104,7 @@ class MySSD(nn.HybridBlock):
                 im = x
             (x, anchors[k], cls_preds[k], bbox_preds[k]) = \
                 hybrid_blk_forward(x, getattr(self, "blk%d" % (k + 1)), sizes[k], ratios[k],
-                            getattr(self, "cls%d" % (k + 1)), getattr(self, "reg%d" % (k + 1)))
+                                   getattr(self, "cls%d" % (k + 1)), getattr(self, "reg%d" % (k + 1)))
             # print("layer[%d], fmap shape %s, anchor %s" % (k + 1, x.shape, anchors[k].shape))
         return (im, sym.concat(*anchors, dim=1),
                 hybrid_concat_preds(cls_preds).reshape((0, -1, self.num_classes + 1)),
@@ -183,7 +184,7 @@ def test(ctx=mx.cpu()):
     def bbox_eval(bbox_preds, bbox_labels, bbox_masks):
         return ((bbox_labels - bbox_preds) * bbox_masks).abs().sum().asscalar()
 
-    IF_LOAD_MODEL = False
+    IF_LOAD_MODEL = True
     if IF_LOAD_MODEL:
         net.load_parameters("./myssd.params")
     else:
@@ -213,8 +214,8 @@ def test(ctx=mx.cpu()):
             if (epoch + 1) % 1 == 0:
                 print('epoch %2d, class err %.2e, bbox mae %.2e, time %.1f sec' % (
                     epoch + 1, 1 - acc_sum / n, mae_sum / m, time.time() - start))
-        net.save_parameters("myssd.params")
 
+    net.save_parameters("myssd.params")
 
     def predict(X):
         im, anchors, cls_preds, bbox_preds = net(X.as_in_context(ctx))
@@ -249,7 +250,7 @@ def test(ctx=mx.cpu()):
             cv.imshow("res", img)
             cv.waitKey(60)
 
-    cap = cv.VideoCapture("/home/cunyuan/code/pycharm/data/uav/drone_video/Video_233.mp4")
+    cap = cv.VideoCapture("../data/uav/drone_video/Video_233.mp4")
     rd = 0
     while True:
         ret, frame = cap.read()
@@ -259,7 +260,7 @@ def test(ctx=mx.cpu()):
 
         countt = time.time()
         output = predict(X)
-        if rd==0: net.export('ssd')
+        if rd == 0: net.export('ssd')
         countt = time.time() - countt
         print("SPF: %3.2f" % countt)
 
@@ -268,7 +269,6 @@ def test(ctx=mx.cpu()):
         display(frame / 255, output, threshold=0.8)
         plt.show()
         rd += 1
-
 
 
 test(mx.gpu())
