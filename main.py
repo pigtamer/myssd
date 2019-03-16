@@ -152,7 +152,7 @@ def test(ctx=mx.cpu()):
     # x = nd.random.normal(0,1,(100,3,256,256), ctx=ctx)
     # net(x)
     batch_size, edge_size = 4, 256
-    train_iter, _ = predata.load_data_pikachu(batch_size, edge_size)
+    train_iter, _ = predata.load_data_uav(batch_size, edge_size)
     batch = train_iter.next()
     batch.data[0].shape, batch.label[0].shape
 
@@ -183,7 +183,7 @@ def test(ctx=mx.cpu()):
     def bbox_eval(bbox_preds, bbox_labels, bbox_masks):
         return ((bbox_labels - bbox_preds) * bbox_masks).abs().sum().asscalar()
 
-    IF_LOAD_MODEL = True
+    IF_LOAD_MODEL = False
     if IF_LOAD_MODEL:
         net.load_parameters("./myssd.params")
     else:
@@ -196,7 +196,7 @@ def test(ctx=mx.cpu()):
                 Y = batch.label[0].as_in_context(ctx)
                 with autograd.record():
                     # generate anchors and generate bboxes
-                    anchors, cls_preds, bbox_preds = net(X)
+                    im, anchors, cls_preds, bbox_preds = net(X)
                     # assign classes and bboxes for each anchor
                     bbox_labels, bbox_masks, cls_labels = nd.contrib.MultiBoxTarget(anchors, Y,
                                                                                     cls_preds.transpose((0, 2, 1)))
