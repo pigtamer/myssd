@@ -85,7 +85,7 @@ class MySSD(nn.HybridBlock):
         self.reg4 = genBBoxRegressor(num_ach)
 
         self.blk5 = nn.HybridSequential()
-        self.blk3.add(nn.Conv2D(channels=128, kernel_size=1, strides=1, padding=0),
+        self.blk5.add(nn.Conv2D(channels=128, kernel_size=1, strides=1, padding=0),
                       nn.Conv2D(channels=256, kernel_size=3, strides=1, padding=1),
                       nn.BatchNorm(in_channels=256),
                       nn.Activation('relu'),
@@ -215,6 +215,7 @@ def test(ctx=mx.cpu()):
                     epoch + 1, 1 - acc_sum / n, mae_sum / m, time.time() - start))
         net.save_parameters("myssd.params")
 
+
     def predict(X):
         im, anchors, cls_preds, bbox_preds = net(X.as_in_context(ctx))
         # im = im.transpose((2, 3, 1, 0)).asnumpy()
@@ -249,6 +250,7 @@ def test(ctx=mx.cpu()):
             cv.waitKey(60)
 
     cap = cv.VideoCapture("/home/cunyuan/code/pycharm/data/uav/drone_video/Video_233.mp4")
+    rd = 0
     while True:
         ret, frame = cap.read()
         img = nd.array(frame)
@@ -257,6 +259,7 @@ def test(ctx=mx.cpu()):
 
         countt = time.time()
         output = predict(X)
+        if rd==0: net.export('ssd')
         countt = time.time() - countt
         print("SPF: %3.2f" % countt)
 
@@ -264,6 +267,8 @@ def test(ctx=mx.cpu()):
 
         display(frame / 255, output, threshold=0.8)
         plt.show()
+        rd += 1
+
 
 
 test(mx.gpu())
