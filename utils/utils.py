@@ -50,7 +50,7 @@ def fmap_grid(fmaplist):
         for j in range(h_grid):
             ax[i, j].xaxis.set_major_locator(plt.NullLocator())
             ax[i, j].yaxis.set_major_locator(plt.NullLocator())
-            ax[i, j].imshow(fmaplist[int(w_grid * i + j)], cmap="bone")
+            ax[i, j].imshow(fmaplist[int(w_grid * i + j)])
     plt.show()
 
 
@@ -546,6 +546,16 @@ def show_images(imgs, num_rows, num_cols, scale=2):
             axes[i][j].axes.get_yaxis().set_visible(False)
     return axes
 
+def show_images_np(imgs, num_rows, num_cols, scale=2):
+    """Plot a list of images."""
+    figsize = (num_cols * scale, num_rows * scale)
+    _, axes = plt.subplots(num_rows, num_cols, figsize=figsize, gridspec_kw={"wspace": 0, "hspace": 0})
+    for i in range(num_rows):
+        for j in range(num_cols):
+            axes[i][j].imshow(imgs[i * num_cols + j], cmap='gray')
+            axes[i][j].axes.get_xaxis().set_visible(False)
+            axes[i][j].axes.get_yaxis().set_visible(False)
+    return axes
 
 def show_trace_2d(f, res):
     """Show the trace of 2d variables during optimization."""

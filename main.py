@@ -25,11 +25,10 @@ def genBBoxRegressor(num_ach):
 
 def blk_forward(X, blk, size, ratio, cls_predictor, bbox_predictor):
     Y = blk(X)
-    anchors = contrib.ndarray.MultiBoxPrior(Y, sizes=size, ratios=ratio)
+    anchors = nd.contrib.MultiBoxPrior(Y, sizes=size, ratios=ratio)
     cls_preds = cls_predictor(Y)
     bbox_preds = bbox_predictor(Y)
     return (Y, anchors, cls_preds, bbox_preds)
-
 
 class MySSD(nn.Block):
     def __init__(self, num_cls, num_ach, **kwargs):
@@ -88,13 +87,16 @@ class MySSD(nn.Block):
 
     def forward(self, x):
         x = self.BaseBlk(x)
+
         anchors, cls_preds, bbox_preds = [None] * 5, [None] * 5, [None] * 5
         for k in range(5):
+            if k == 0:
+                im = x
             (x, anchors[k], cls_preds[k], bbox_preds[k]) = \
                 blk_forward(x, getattr(self, "blk%d" % (k + 1)), sizes[k], ratios[k],
                             getattr(self, "cls%d" % (k + 1)), getattr(self, "reg%d" % (k + 1)))
             # print("layer[%d], fmap shape %s, anchor %s" % (k + 1, x.shape, anchors[k].shape))
-        return (nd.concat(*anchors, dim=1),
+        return (im, nd.concat(*anchors, dim=1),
                 concat_preds(cls_preds).reshape((0, -1, self.num_classes + 1)),
                 concat_preds(bbox_preds))
 
@@ -138,7 +140,7 @@ def test(ctx=mx.cpu()):
     net.initialize(init="Xavier", ctx=ctx)
     # print(net)
 
-    batch_size, edge_size = 4, 256
+    batch_size, edge_size = 4, 448
     train_iter, _ = predata.load_data_pikachu(batch_size, edge_size)
     batch = train_iter.next()
     batch.data[0].shape, batch.label[0].shape
@@ -203,7 +205,16 @@ def test(ctx=mx.cpu()):
         net.save_parameters("myssd.params")
 
     def predict(X):
-        anchors, cls_preds, bbox_preds = net(X.as_in_context(ctx))
+        im, anchors, cls_preds, bbox_preds = net(X.as_in_context(ctx))
+        im = im.transpose((2, 3, 1, 0)).asnumpy()
+        imgs = [im[1:-2,1:-2, k, 0] for k in range(256)] # why are there boundary effect?
+
+        utils.show_images_np(imgs, 16, 16)
+        # plt.show()
+        plt.savefig("./activation/figbase%s"%nd.random.randint(0,100,1).asscalar())
+
+        # plt.imshow(nd.sum(nd.array(im[1:-2, 1:-2, :, :]), axis=2).asnumpy()[:, :, 0], cmap='gray')
+        # plt.savefig("./suming_act")
         cls_probs = cls_preds.softmax().transpose((0, 2, 1))
         output = contrib.nd.MultiBoxDetection(cls_probs, bbox_preds, anchors)
         idx = [i for i, row in enumerate(output[0]) if row[0].asscalar() != -1]
@@ -222,26 +233,26 @@ def test(ctx=mx.cpu()):
             h, w = img.shape[0:2]
             bbox = [row[2:6] * nd.array((w, h, w, h), ctx=row.context)]
             cv.rectangle(img, (bbox[0][0].asscalar(), bbox[0][1].asscalar()),
-                         (bbox[0][2].asscalar(), bbox[0][3].asscalar()),(0,255,0), 3)
+                         (bbox[0][2].asscalar(), bbox[0][3].asscalar()), (0, 255, 0), 3)
             cv.imshow("res", img)
             cv.waitKey(60)
 
-    cap = cv.VideoCapture("/home/cunyuan/code/pycharm/data/uav/Video_233.mp4")
+    cap = cv.VideoCapture("/home/cunyuan/code/pycharm/data/uav/drone_video/Video_233.mp4")
     while True:
         ret, frame = cap.read()
         img = nd.array(frame)
-        feature = image.imresize(img, 256, 256).astype('float32')
+        feature = image.imresize(img, 448, 448).astype('float32')
         X = feature.transpose((2, 0, 1)).expand_dims(axis=0)
 
         countt = time.time()
         output = predict(X)
         countt = time.time() - countt
-        print("SPF: %3.2f"%countt)
+        print("SPF: %3.2f" % countt)
 
         utils.set_figsize((5, 5))
 
-        display(frame/255, output, threshold=0.8)
-        plt.show()
+        # display(frame / 255, output, threshold=0.8)
+        # plt.show()
 
 
 test(mx.gpu())
