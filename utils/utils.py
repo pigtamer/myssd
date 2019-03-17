@@ -29,6 +29,14 @@ def concat_preds(preds):
     return nd.concat(*[flatten_pred(p) for p in preds], dim=1)
 
 
+def hybrid_flatten_pred(sym_pred):
+    return sym.transpose(sym_pred, (0, 2, 3, 1)).flatten()
+
+
+def hybrid_concat_preds(sym_preds):
+    return sym.concat(*[hybrid_flatten_pred(p) for p in sym_preds], dim=1)
+
+
 def fmap_grid(fmaplist):
     def factor(n):
         factors = set()
@@ -50,7 +58,7 @@ def fmap_grid(fmaplist):
         for j in range(h_grid):
             ax[i, j].xaxis.set_major_locator(plt.NullLocator())
             ax[i, j].yaxis.set_major_locator(plt.NullLocator())
-            ax[i, j].imshow(fmaplist[int(w_grid * i + j)], cmap="bone")
+            ax[i, j].imshow(fmaplist[int(w_grid * i + j)])
     plt.show()
 
 
@@ -542,6 +550,18 @@ def show_images(imgs, num_rows, num_cols, scale=2):
     for i in range(num_rows):
         for j in range(num_cols):
             axes[i][j].imshow(imgs[i * num_cols + j].asnumpy())
+            axes[i][j].axes.get_xaxis().set_visible(False)
+            axes[i][j].axes.get_yaxis().set_visible(False)
+    return axes
+
+
+def show_images_np(imgs, num_rows, num_cols, scale=2):
+    """Plot a list of images."""
+    figsize = (num_cols * scale, num_rows * scale)
+    _, axes = plt.subplots(num_rows, num_cols, figsize=figsize, gridspec_kw={"wspace": 0, "hspace": 0})
+    for i in range(num_rows):
+        for j in range(num_cols):
+            axes[i][j].imshow(imgs[i * num_cols + j], cmap='gray')
             axes[i][j].axes.get_xaxis().set_visible(False)
             axes[i][j].axes.get_yaxis().set_visible(False)
     return axes

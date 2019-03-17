@@ -1,0 +1,9 @@
+digraph plot {
+	data [label=data fillcolor="#8dd3c7" fixedsize=false height=0.8034 shape=oval style=filled width=1.3]
+	conv1conv [label="Convolution\n3x3/1x1, 1" fillcolor="#fb8072" fixedsize=false height=0.8034 shape=oval style=filled width=1.3]
+	conv1bn [label=conv1bn fillcolor="#bebada" fixedsize=false height=0.8034 shape=oval style=filled width=1.3]
+	conv1act [label="Activation\nrelu" fillcolor="#ffffb3" fixedsize=false height=0.8034 shape=oval style=filled width=1.3]
+	conv1conv -> data [arrowtail=open dir=back]
+	conv1bn -> conv1conv [arrowtail=open dir=back]
+	conv1act -> conv1bn [arrowtail=open dir=back]
+}
