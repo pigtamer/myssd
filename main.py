@@ -1,4 +1,4 @@
-import time
+import time, argparse
 import mxnet as mx
 import cv2 as cv
 import matplotlib.pyplot as plt
@@ -8,6 +8,26 @@ from mxnet import autograd, sym, init, nd, contrib, gluon, image
 from mxnet.gluon import nn, trainer
 from mxnet.gluon import loss as gloss
 from mxnet.gluon import data as gdata
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-l", "--load", dest="load",
+                    help="int 0/1: load model to directly infer rather than training",
+                    type=int, default=1)
+parser.add_argument("-b", "--base", dest="base",
+                    help="int 0/1: using additional base network",
+                    type=int, default=0)
+parser.add_argument("-s", "--imsize", dest="input_size",
+                    help="int: input frame size",
+                    type=int, default=256)
+parser.add_argument("-m", "--model_path", dest="model_path",
+                    help="str: the path to load and save model",
+                    type=str, default="../params/myssd5.params")
+parser.add_argument("-t", "--test_path", dest="test_path",
+                    help="str: the path to your test img",
+                    type=str, default="../data/uav/drone_video/Video_233.mp4")
+args = parser.parse_args()
+
 
 # TODO: read the calculation of following sizes!!
 sizes = [[0.2, 0.272], [0.37, 0.447], [0.54, 0.619], [0.71, 0.79], [0.88, 0.961]]
@@ -184,9 +204,9 @@ def test(ctx=mx.cpu()):
     def bbox_eval(bbox_preds, bbox_labels, bbox_masks):
         return ((bbox_labels - bbox_preds) * bbox_masks).abs().sum().asscalar()
 
-    IF_LOAD_MODEL = True
+    IF_LOAD_MODEL = args.load
     if IF_LOAD_MODEL:
-        net.load_parameters("./myssd.params")
+        net.load_parameters(args.model_path)
     else:
         for epoch in range(10):
             acc_sum, mae_sum, n, m = 0.0, 0.0, 0, 0
@@ -250,7 +270,7 @@ def test(ctx=mx.cpu()):
             cv.imshow("res", img)
             cv.waitKey(60)
 
-    cap = cv.VideoCapture("../data/uav/drone_video/Video_233.mp4")
+    cap = cv.VideoCapture(args.test_path)
     rd = 0
     while True:
         ret, frame = cap.read()
