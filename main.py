@@ -13,7 +13,7 @@ from mxnet.gluon import data as gdata
 parser = argparse.ArgumentParser()
 parser.add_argument("-l", "--load", dest="load",
                     help="int 0/1: load model to directly infer rather than training",
-                    type=int, default=1)
+                    type=int, default=0)
 parser.add_argument("-b", "--base", dest="base",
                     help="int 0/1: using additional base network",
                     type=int, default=0)

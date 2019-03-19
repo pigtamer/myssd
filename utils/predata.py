@@ -36,15 +36,22 @@ def load_data_pikachu(batch_size, edge_size=256):  # edge_size：输出图像的
 
 def load_data_uav(batch_size, edge_size=256):
     data_dir = '../data/uav'
-    #_download_pikachu(data_dir)
+    DetAuger = image.CreateDetAugmenter(
+        rand_pad=1,
+        rand_mirror=1,
+        rand_gray=1,
+        rand_crop=1,
+        min_object_covered=0.95,
+        data_shape=(3, edge_size, edge_size)
+    )
     train_iter = image.ImageDetIter(
         path_imgrec=os.path.join(data_dir, 'train.rec'),
         path_imgidx=os.path.join(data_dir, 'train.idx'),
         batch_size=batch_size,
         data_shape=(3, edge_size, edge_size),  # 输出图像的形状
         shuffle=True,  # 以随机顺序读取数据集
-        rand_crop=1,  # 随机裁剪的概率为1
-        min_object_covered=0.95, max_attempts=200)
+        aug_list=DetAuger,
+        max_attempts=200)
     val_iter = image.ImageDetIter(
         path_imgrec=os.path.join(data_dir, 'val.rec'), batch_size=batch_size,
         data_shape=(3, edge_size, edge_size), shuffle=False)
