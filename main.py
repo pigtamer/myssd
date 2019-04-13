@@ -9,23 +9,40 @@ from mxnet.gluon import nn, trainer
 from mxnet.gluon import loss as gloss
 from mxnet.gluon import data as gdata
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument("-l", "--load", dest="load",
-                    help="int 0/1: load model to directly infer rather than training",
+                    help="bool: load model to directly infer rather than training",
                     type=int, default=1)
 parser.add_argument("-b", "--base", dest="base",
-                    help="int 0/1: using additional base network",
+                    help="bool: using additional base network",
                     type=int, default=0)
-parser.add_argument("-s", "--imsize", dest="input_size",
-                    help="int: input frame size",
+
+parser.add_argument("-e", "--epoches", dest="num_epoches",
+                    help="int: trainig epoches",
+                    type=int, default=20)
+parser.add_argument("-bs", "--batch_size", dest="batch_size",
+                    help="int: batch size for training",
+                    type=int, default=4)
+parser.add_argument("-is", "--imsize", dest="input_size",
+                    help="int: input size",
                     type=int, default=256)
-parser.add_argument("-m", "--model_path", dest="model_path",
+
+parser.add_argument("-lr", "--learning_rate", dest="learning_rate",
+                    help="float: learning rate of optimization process",
+                    type=float, default=0.2)
+parser.add_argument("-opt", "--optimize", dest="optimize_method",
+                    help="optimization method",
+                    type=str, default="adam")
+
+parser.add_argument("-dp", "--data_path", dest="data_path",
+                    help="str: the path to dataset",
+                    type=str, default="../data/uav")
+parser.add_argument("-mp", "--model_path", dest="model_path",
                     help="str: the path to load and save model",
-                    type=str, default="../params/myssd5.params")
-parser.add_argument("-t", "--test_path", dest="test_path",
+                    type=str, default="./myssd.params")
+parser.add_argument("-tp", "--test_path", dest="test_path",
                     help="str: the path to your test img",
-                    type=str, default="../data/uav/drone_video/Video_233.mp4")
+                    type=str, default="../data/uav/usc/1479/video1479.avi")
 args = parser.parse_args()
 
 
@@ -172,8 +189,8 @@ def test(ctx=mx.cpu()):
     # print(net)
     # x = nd.random.normal(0,1,(100,3,256,256), ctx=ctx)
     # net(x)
-    batch_size, edge_size = 4, 256
-    train_iter, _ = predata.load_data_uav(batch_size, edge_size)
+    batch_size, edge_size = args.batch_size, args.input_size
+    train_iter, _ = predata.load_data_uav(args.data_path, batch_size, edge_size)
     batch = train_iter.next()
     batch.data[0].shape, batch.label[0].shape
 
@@ -208,7 +225,7 @@ def test(ctx=mx.cpu()):
     if IF_LOAD_MODEL:
         net.load_parameters(args.model_path)
     else:
-        for epoch in range(10):
+        for epoch in range(args.num_epoches):
             acc_sum, mae_sum, n, m = 0.0, 0.0, 0, 0
             train_iter.reset()  # reset data iterator to read-in images from beginning
             start = time.time()
@@ -244,7 +261,7 @@ def test(ctx=mx.cpu()):
 
         # utils.show_images_np(imgs, 16, 16)
         # plt.show()
-        # plt.savefig("./activation/figbase%s"%nd.random.randint(0,100,1).asscalar())
+        # plt.savefig("./activdation/figbase%s"%nd.random.randint(0,100,1).asscalar())
 
         # plt.imshow(nd.sum(nd.array(im[1:-2, 1:-2, :, :]), axis=2).asnumpy()[:, :, 0], cmap='gray')
         # plt.savefig("./suming_act")
@@ -275,7 +292,7 @@ def test(ctx=mx.cpu()):
     while True:
         ret, frame = cap.read()
         img = nd.array(frame)
-        feature = image.imresize(img, 256, 256).astype('float32')
+        feature = image.imresize(img, 512, 512).astype('float32')
         X = feature.transpose((2, 0, 1)).expand_dims(axis=0)
 
         countt = time.time()

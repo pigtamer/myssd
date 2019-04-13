@@ -34,12 +34,11 @@ def load_data_pikachu(batch_size, edge_size=256):  # edge_size：输出图像的
         data_shape=(3, edge_size, edge_size), shuffle=False)
     return train_iter, val_iter
 
-def load_data_uav(batch_size, edge_size=256):
-    data_dir = '../data/uav'
-    #_download_pikachu(data_dir)
+def load_data_uav(data_dir = '../data/uav', batch_size=4, edge_size=256):
+    # _download_pikachu(data_dir)
     train_iter = image.ImageDetIter(
         path_imgrec=os.path.join(data_dir, 'train.rec'),
-        path_imgidx=os.path.join(data_dir, 'train.idx'),
+        path_imgidx = os.path.join(data_dir, 'train.idx'),
         batch_size=batch_size,
         data_shape=(3, edge_size, edge_size),  # 输出图像的形状
         shuffle=True,  # 以随机顺序读取数据集
